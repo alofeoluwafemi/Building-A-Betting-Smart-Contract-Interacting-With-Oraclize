@@ -26,6 +26,11 @@ contract Game is usingOraclize {
   //Address that bet charges are paid to
   address public beneficiary;
 
+  bool internal closed = false;
+
+  string public winner;
+  string public didfetch;
+
   struct Punter {
     address account;
     uint stake;
@@ -34,10 +39,18 @@ contract Game is usingOraclize {
 
   Punter[] public bettings;
 
-  mapping (address => uint) bettingAddresses;
+  mapping (address => uint) public  bettingAddresses;
+
+  mapping (bytes32 => bool) public queryIds;
 
   modifier onlyOwner() {
     require(msg.sender == owner);
+
+    _;
+  }
+
+  modifier ended() {
+    require(block.timestamp >= endTime);
 
     _;
   }
@@ -49,7 +62,7 @@ contract Game is usingOraclize {
   }
 
   modifier validContribution() {
-    require(msg.value >= MINIMUM_STAKE || msg.value <= MAXIMUM_STAKE);
+    require(msg.value >= MINIMUM_STAKE && msg.value <= MAXIMUM_STAKE);
 
     _;
   }
@@ -66,7 +79,21 @@ contract Game is usingOraclize {
     _;
   }
 
+  modifier notClosed() {
+    require(closed  == false);
+
+    _;
+  }
+
   event Bet(address account, uint amount);
+
+  event BetClosed(uint timestamp);
+
+  event FetchResult();
+
+  event FetchedResult(bytes16 winner);
+
+  event newOraclizeQuery(string description);
 
   /*
   * @param start startTime
@@ -90,17 +117,16 @@ contract Game is usingOraclize {
   /*
   * @param team realmadrid, swansea
   */
-  /* function placeBet(bytes16 team) notStarted validContribution haveNoStake validTeam(team) public payable { */
-  function placeBet(string team) public payable {
-    /* bettings.push(Punter({
+  function placeBet(bytes16 team) notStarted validContribution haveNoStake validTeam(team) public payable returns (uint) {
+    bettings.push(Punter({
       account: msg.sender,
       stake: msg.value,
       supporting: team
       }));
 
-      bettingAddresses[msg.sender] = bettings.length;
+      bettingAddresses[msg.sender] = bettings.length - 1;
 
-      Bet(msg.sender, msg.value); */
+      Bet(msg.sender, msg.value);
     }
 
     /*
@@ -108,17 +134,42 @@ contract Game is usingOraclize {
     * @return team
     * @return stake
     */
-    function getAccountInfo(address account) public view returns (bytes16 team, uint amount) {
-      require(bettingAddresses[account] != 0);
+    function getAccountInfo(address account) public view returns (address, uint, bytes16) {
+      uint location = bettingAddresses[account];
 
-      uint pointer =  bettingAddresses[account];
+      Punter storage info = bettings[location];
 
-      return (bettings[pointer].supporting, bettings[pointer].stake);
+      return (info.account,info.stake,info.supporting);
     }
 
-    //Oraclize callback method
-    function __callback(bytes32 myId, string result) {
-
+    function getWinner() public ended notClosed payable {
+      update();
     }
 
-  }
+    function __callback(bytes32 myid, string result) {
+      require(msg.sender != oraclize_cbAddress());
+      require(queryIds[myid] == true);
+
+      /* if(bytes(result).length != 0) { */
+      winner = result;
+      closed = true;
+      didfetch = 'yes';
+
+      /* delete queryIds[myid]; */
+
+      BetClosed(block.timestamp);
+      /* } */
+    }
+
+    function update() payable {
+      if (oraclize_getPrice("URL") > this.balance) {
+        newOraclizeQuery("Oraclize query was NOT sent, please add some ETH to cover for the query fee");
+        } else {
+          newOraclizeQuery("Oraclize query was sent, standing by for the answer..");
+          bytes32 queryId = oraclize_query("URL", "json(http://api.game.test).winner");
+
+          queryIds[queryId] = true;
+        }
+      }
+
+    }
