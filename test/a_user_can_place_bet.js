@@ -21,18 +21,18 @@ contract('Place Bet : ', async (accounts) => {
 
     it('two users can stake between 0.01 and 1 ether on any game ones', async () => {
         let game = await Contract.new(start,end);
-        await game.placeBet('realmadrid',{value: web3.toWei(0.01, "ether"), from: accounts[1]});
+        await game.placeBet('realmadrid',{value: web3.toWei(0.6, "ether"), from: accounts[1]});
 
         let betInfoA = await game.getAccountInfo(accounts[1]);
 
         assert.equal(betInfoA[0], accounts[1]);
-        assert.equal(betInfoA[1], web3.toWei(0.01, "ether"));
+        assert.equal(betInfoA[1], web3.toWei(0.6, "ether"));
 
-        await game.placeBet('swansea',{value: web3.toWei(0.1, "ether"), from: accounts[2]});
+        await game.placeBet('swansea',{value: web3.toWei(0.4, "ether"), from: accounts[2]});
 
         let betInfoB = await game.getAccountInfo(accounts[2]);
 
         assert.equal(betInfoB[0], accounts[2]);
-        assert.equal(betInfoB[1], web3.toWei(0.1, "ether"));
+        assert.equal(betInfoB[1], web3.toWei(0.4, "ether"));
     })
 });
