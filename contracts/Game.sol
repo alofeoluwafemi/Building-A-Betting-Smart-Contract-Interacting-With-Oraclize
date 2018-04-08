@@ -14,10 +14,10 @@ contract Game is usingOraclize {
 
  string public constant TEAM_B = 'swansea';
 
- //Game kickoff
+ //Game playoff
  uint256 public startTime;
 
- //Game Signoff
+ //Game off
  uint256 public endTime;
 
  //Address that created the contract
@@ -28,9 +28,13 @@ contract Game is usingOraclize {
 
  bool public closed = false;
 
- uint public payout;
+ uint public totalPayout;
+
+ uint public totalHolding;
 
  string public winner;
+
+ uint precision = 10 ** 18;
 
  struct Punter {
   address account;
@@ -39,6 +43,15 @@ contract Game is usingOraclize {
  }
 
  Punter[] public bettings;
+
+ struct Payout {
+  address account;
+  uint percentage;
+ }
+
+ Payout[] public payouts;
+
+ mapping (address => uint) public  payoutAddresses;
 
  mapping (address => uint) public  bettingAddresses;
 
@@ -93,8 +106,6 @@ contract Game is usingOraclize {
  event FetchedResult(string winner);
 
  event newOraclizeQuery(string description);
-
- event Loser(string loser, string winner, bool status);
 
  /*
  * @param start startTime
@@ -158,7 +169,7 @@ contract Game is usingOraclize {
   }
  }
 
- function __callback(bytes32 myid, string result, bytes proof) public {
+ function __callback(bytes32 myid, string result) public {
   require(msg.sender == oraclize_cbAddress());
   require(queryIds[myid] == true);
 
@@ -171,32 +182,75 @@ contract Game is usingOraclize {
   BetClosed(block.timestamp, result);
  }
 
- function setBeneficiaryAddress(address beneficiary) public {
-  referee = beneficiary;
- }
-
  function distributeStake() onlyOwner public payable returns (address){
-  calculatePayout();
+  calculateTotalPayable();
+  calculateIndividualRation();
+
+  for(uint i = 0; i < rations.length; ++i) {
+   Ration storage ration = rations[i];
+   uint winning = ration.percentage.div(100) * totalPayable;
+
+   winning = winning.div(10 ** 18);
+
+   payouts[ration.account] = winning;
+
+   address(ration.account).transfer(winning);
+
+   Payment(winning);
+  }
  }
 
- function calculatePayout() internal {
+ function calculateTotalPayable() internal {
   require(bettings.length > 0);
 
   for(uint i = 0; i < bettings.length; ++i) {
 
-   Punter profile = bettings[i];
-
-   Loser(profile.supporting, winner, keccak256(profile.supporting) == keccak256(winner));
+   Punter storage profile = bettings[i];
 
    //String cannot be compared directly
    //Hash to do comparision
-   if(keccak256(profile.supporting) == keccak256(winner)) continue;
+   if(keccak256(profile.supporting) == keccak256(winner)) {
+    totalHolding += profile.stake;
 
-   payout += profile.stake;
+    rations.push(Ration({
+     account: profile.account,
+     percentage: profile.stake
+     }));
 
-   //Remove addresses that lost bet
-   delete bettingAddresses[profile.account];
-   delete bettings[i];
+    payoutAddresses[profile.account] = rations.length - 1;
+
+   }else{
+    totalPayable += profile.stake;
+   }
   }
+ }
+
+ //Calculate each individual payout in percentage
+ //ratio of the total payout
+ function calculateIndividualRation() internal {
+  for(uint i = 0; i < rations.length; ++i) {
+
+   Ration storage ration = rations[i];
+
+   ration.percentage = getPercentage(ration.percentage);
+  }
+ }
+
+ //Calculate percentage and add precision to eliminate decimals
+ //which cannot be handled
+ function getPercentage(uint stake) internal view returns (uint) {
+  uint percentage = (stake.mul(precision) / totalHolding).mul(100);
+
+  return percentage;
+ }
+
+ function getAccountPercentage(address account) public view returns (uint percentage) {
+  uint location = payoutAddresses[account];
+
+  return rations[location].percentage;
+ }
+
+ function getBalance(address account) public view returns (uint balance) {
+  return account.balance;
  }
 }
