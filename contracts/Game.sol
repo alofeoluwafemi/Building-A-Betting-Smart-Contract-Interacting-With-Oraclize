@@ -32,20 +32,27 @@ contract Game is usingOraclize {
 
  bool public closed = false;
 
+ //Total amount to be distributed among winners
  uint public totalPayable;
 
+ //Total amount of winners stake, to us to calculate
+ //ratio of total payable to be payed per account
  uint public totalHolding;
 
  string public winner;
 
+ //Precision to use for calculation that will yield
+ //decimal values to convert to non decimal value
  uint precision = 10 ** 18;
 
+ //Profile of each account betting
  struct Punter {
   address account;
   uint stake;
   string supporting;
  }
 
+ //Lists of all bets placed
  Punter[] public bettings;
 
  struct Ration {
