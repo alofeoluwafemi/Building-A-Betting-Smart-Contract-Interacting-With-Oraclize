@@ -12,15 +12,8 @@ contract('Place Bet : ', async (accounts) => {
     let start = now.add({minutes : 10}).unix();
     let end = now.add({minutes: 100}).unix();
 
-    it('successfully transfer payout of to winners', async () => {
+    it('successfully transfer payout to winners', async () => {
         let game = await Contract.new(start,end);
-
-        // let event = game.newOraclizeQuery();
-        //
-        // event.watch(function (error,log) {
-        //     if(!error)
-        //         console.log(log);
-        // });
 
         //Place bets
         await game.placeBet('swansea',{value: web3.toWei(0.1, "ether"), from: accounts[1]});
@@ -28,7 +21,7 @@ contract('Place Bet : ', async (accounts) => {
         await game.placeBet('realmadrid',{value: web3.toWei(0.3, "ether"), from: accounts[3]});
         await game.placeBet('realmadrid',{value: web3.toWei(0.4, "ether"), from: accounts[4]});
 
-        let prevAccBalance = await web3.eth.accounts[2].balance;
+        let prevAccBalance = await game.getBalance(accounts[2]);
 
         //End game
         await game.endGame();
@@ -43,23 +36,21 @@ contract('Place Bet : ', async (accounts) => {
 
         assert.equal(log.event, 'BetClosed', 'BetClosed not emitted');
 
-        // await logWhenBetClosed;
-        // await game.distributeStake();
+        await game.distributeStake();
 
-        // let totalPayable = await game.totalPayable();
-        // let accountPayable = await game.payouts(accounts[2]) / 10 ** 18;
+        let conversion = 10 ** 18;
+        let totalPayable = await game.totalPayable();
+        let accountPayable = await game.payouts(accounts[2]);
 
-        // let newBalance = await game.getBalance(accounts[2]);
+        let newAccBalance = await game.getBalance(accounts[2]);
 
-        //Check for total payout to swansea punters
-        // assert.equal(0.7, totalPayable / 10 ** 18);
+        let totalPayableInEther = totalPayable.toNumber() / conversion;
+        let accountPayableInEther = accountPayable.toNumber() / conversion;
+        let prevAccBalanceInEther = prevAccBalance.toNumber() / conversion;
+        let newAccBalanceInEther = newAccBalance.toNumber() / conversion;
 
-        // accountPayable = web3.fromWei(accountPayable.toNumber(),'ether');
-        // prevoiusBalance = web3.fromWei(prevoiusBalance.toNumber(),'ether');
-        // newBalance = web3.fromWei(newBalance.toNumber(),'ether');
-
-        // console.log(accountPayable.toString(),prevoiusBalance.toString(),newBalance.toString());
-        // console.log(expected.toString(),accountPayable.toString());
+        assert.equal(totalPayableInEther, 0.3);     //0.3 Sum of stake lost to swansea punters
+        assert.equal(prevAccBalanceInEther + accountPayableInEther, newAccBalanceInEther);
     }).timeout(0);
 
     /**

@@ -2,7 +2,11 @@ pragma solidity ^0.4.18;
 
 import "./OraclizeAPI.sol";
 
+import "./SafeMath.sol";
+
 contract Game is usingOraclize {
+
+ using SafeMath for uint;
 
  //MINIMUM_STAKE allowed is 0.01 ether
  uint public constant MINIMUM_STAKE = 10 ** 16;
@@ -28,7 +32,7 @@ contract Game is usingOraclize {
 
  bool public closed = false;
 
- uint public totalPayout;
+ uint public totalPayable;
 
  uint public totalHolding;
 
@@ -44,12 +48,14 @@ contract Game is usingOraclize {
 
  Punter[] public bettings;
 
- struct Payout {
+ struct Ration {
   address account;
   uint percentage;
  }
 
- Payout[] public payouts;
+ Ration[] public rations;
+
+ mapping (address => uint) public payouts;
 
  mapping (address => uint) public  payoutAddresses;
 
@@ -107,6 +113,8 @@ contract Game is usingOraclize {
 
  event newOraclizeQuery(string description);
 
+ event Payment(uint winning);
+
  /*
  * @param start startTime
  * @param end endTime
@@ -116,7 +124,7 @@ contract Game is usingOraclize {
   endTime = end;
   owner = msg.sender;
 
-  OAR = OraclizeAddrResolverI(0x6f485C8BF6fc43eA212E93BBF8ce046C7f1cb475);
+  OAR = OraclizeAddrResolverI(0xF08dF3eFDD854FEDE77Ed3b2E515090EEe765154);
  }
 
  /*
@@ -251,6 +259,6 @@ contract Game is usingOraclize {
  }
 
  function getBalance(address account) public view returns (uint balance) {
-  return account.balance;
+  return (address(account).balance);
  }
 }
